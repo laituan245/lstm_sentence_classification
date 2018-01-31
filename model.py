@@ -22,6 +22,7 @@ class Model:
 
         with tf.name_scope('placeholders'):
             self.keep_prob = tf.placeholder('float32', shape=(), name='drop')
+            self.sentence_length = tf.placeholder(tf.int32, shape=(None))
             self.sentence = tf.placeholder(tf.int32, shape=(None, max_sent_len))
             self.target = tf.placeholder(tf.float32, shape=(None, num_labels))
 
@@ -34,7 +35,7 @@ class Model:
 
         with tf.variable_scope('networks'):
             lstm_cell = tf.contrib.rnn.LSTMCell(rnn_size)
-            outputs, final_state = tf.nn.dynamic_rnn(lstm_cell, sent_emb, dtype=tf.float32)
+            outputs, final_state = tf.nn.dynamic_rnn(lstm_cell, sent_emb, sequence_length=self.sentence_length, dtype=tf.float32)
             features = final_state.h
             features_drop = tf.nn.dropout(features, self.keep_prob)
 
@@ -64,23 +65,25 @@ class Model:
         # Operation to save and restore all the variables.
         self.saver = tf.train.Saver()
 
-    def train(self, sess, batch, keep_prob = 0.5):
-        batch_sentences, batch_targets = batch
+    def train(self, sess, batch, keep_prob = 0.8):
+        batch_lengths, batch_sentences, batch_targets = batch
         _, batch_loss, batch_accuracy = sess.run(
                         [self.optimize, self.loss, self.accuracy],
                         feed_dict = {
                             self.keep_prob: keep_prob,
+                            self.sentence_length: batch_lengths,
                             self.sentence: batch_sentences,
                             self.target: batch_targets,
                         })
         return batch_loss, batch_accuracy
 
     def evaluate(self, sess, batch):
-        batch_sentences, batch_targets = batch
+        batch_lengths, batch_sentences, batch_targets = batch
         batch_correct = sess.run(
                         self.correct,
                         feed_dict = {
                             self.keep_prob: 1,
+                            self.sentence_length: batch_lengths,
                             self.sentence: batch_sentences,
                             self.target: batch_targets,
                         })

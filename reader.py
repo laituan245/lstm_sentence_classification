@@ -48,12 +48,14 @@ class ReviewDataset:
         self.test = AugmentedList(self.data[split_index:])
 
     def next_batch(self, batch_size, mode = TRAIN_MODE):
-        reviews, targets = [], []
+        review_lengths, reviews, targets = [], [], []
         data = self.train if mode == TRAIN_MODE else self.test
         batch = data.next_items(batch_size)
         for (review, target) in batch:
+            review_length = len(word_tokenize(normalize_string(review)))
             review = indexes_from_sentence(review, self.dictionary, self.max_sent_len)
             target = one_hot_encoding(2, target)
             reviews.append(review)
             targets.append(target)
-        return reviews, targets
+            review_lengths.append(review_length)
+        return review_lengths, reviews, targets
