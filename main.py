@@ -12,6 +12,7 @@ EMBEDDING_DIM = 300
 LEARNING_RATE = 0.01
 BATCH_SIZE = 32
 NUMBER_ITERATIONS = 20000
+LOGS_PATH = './logs/'
 
 # Initialization
 dataset = ReviewDataset()
@@ -25,12 +26,19 @@ saver = tf.train.Saver()
 # Start TensorFlow
 with tf.Session() as sess:
     sess.run(model.init)
+
+    # create log writer object
+    writer = tf.summary.FileWriter(LOGS_PATH, graph=tf.get_default_graph())
+
     sess.run(model.embedding_init, feed_dict={model.embedding_placeholder: weights})
     train_accuracies = []
     for ix in range(NUMBER_ITERATIONS):
         batch = dataset.next_batch(BATCH_SIZE, TRAIN_MODE)
         _, batch_accuracy = model.train(sess, batch)
         train_accuracies.append(batch_accuracy)
+        # Write summary to logs
+        summary = sess.run(model.summary_op)
+        writer.add_summary(summary, ix)
         if ix > 0 and ix % 500 == 0:
             # Evaluate the model on the test set
             batch = dataset.next_batch(dataset.test.size, EVAL_MODE)

@@ -15,6 +15,18 @@ def conv_relu(input, kernel_shape, bias_shape):
         strides=[1, 1, 1, 1], padding='VALID')
     return tf.nn.relu(conv + biases)
 
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
 class Model:
     def __init__(self, max_sent_len, num_labels, vocab_size, embedding_dim,
                  learning_rate):
@@ -40,8 +52,12 @@ class Model:
             features_drop = tf.nn.dropout(features, self.keep_prob)
 
         with tf.variable_scope("predictions"):
-            final_w = tf.Variable(tf.random_normal([rnn_size, num_labels]))
-            final_b = tf.Variable(tf.random_normal([num_labels]))
+            with tf.variable_scope('final_weight'):
+                final_w = tf.Variable(tf.random_normal([rnn_size, num_labels]))
+                variable_summaries(final_w)
+            with tf.variable_scope('final_bias'):
+                final_b = tf.Variable(tf.random_normal([num_labels]))
+                variable_summaries(final_b)
             self.scores = tf.nn.xw_plus_b(features_drop, final_w, final_b)
             self.prediction = tf.argmax(self.scores, 1)
 
@@ -64,6 +80,18 @@ class Model:
 
         # Operation to save and restore all the variables.
         self.saver = tf.train.Saver()
+
+        # Print out all the variable names
+        for v in tf.trainable_variables():
+            if not 'final' in v.name and not 'embedding' in v.name:
+                variable_name = v.name
+                if 'networks' in v.name and 'kernel' in v.name: variable_name = 'lstm_kernel'
+                if 'networks' in v.name and 'bias' in v.name: variable_name = 'lstm_bias'
+                with tf.variable_scope(variable_name):
+                    variable_summaries(v)
+
+        # merge all summaries into a single "operation" which we can execute in a session
+        self.summary_op = tf.summary.merge_all()
 
     def train(self, sess, batch, keep_prob = 0.8):
         batch_lengths, batch_sentences, batch_targets = batch
